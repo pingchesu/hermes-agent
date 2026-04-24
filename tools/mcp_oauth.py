@@ -520,9 +520,16 @@ def _maybe_preregister_client(
 
 
 def _parse_base_url(server_url: str) -> str:
-    """Strip path component from server URL, returning the base origin."""
+    """Return the OAuth resource URL for the MCP server.
+
+    RFC 8707 resource validation compares against the protected resource
+    advertised by the MCP server. Some servers, notably Notion, use the full
+    MCP endpoint path (for example ``https://mcp.notion.com/mcp``) as that
+    resource.  Preserve the configured path and query string; only fragments
+    are client-side navigation hints and should be stripped.
+    """
     parsed = urlparse(server_url)
-    return f"{parsed.scheme}://{parsed.netloc}"
+    return parsed._replace(fragment="").geturl()
 
 
 def build_oauth_auth(

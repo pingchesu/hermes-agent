@@ -18,6 +18,7 @@ from tools.mcp_oauth import (
     _is_interactive,
     _wait_for_callback,
     _make_callback_handler,
+    _parse_base_url,
 )
 
 
@@ -168,6 +169,27 @@ class TestBuildOAuthAuth:
         })
         assert provider is not None
         assert provider.context.client_metadata.scope == "read write admin"
+
+    def test_parse_base_url_preserves_mcp_path(self):
+        assert _parse_base_url("https://example.com/mcp/v1") == "https://example.com/mcp/v1"
+        assert _parse_base_url("https://mcp.notion.com/mcp") == "https://mcp.notion.com/mcp"
+
+    def test_parse_base_url_strips_fragment_only(self):
+        assert (
+            _parse_base_url("https://example.com/mcp/v1?transport=http#local")
+            == "https://example.com/mcp/v1?transport=http"
+        )
+
+    def test_provider_context_keeps_full_mcp_endpoint(self, tmp_path, monkeypatch):
+        try:
+            from mcp.client.auth import OAuthClientProvider
+        except ImportError:
+            pytest.skip("MCP SDK auth not available")
+
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        provider = build_oauth_auth("notion", "https://mcp.notion.com/mcp")
+        assert provider is not None
+        assert str(provider.context.server_url) == "https://mcp.notion.com/mcp"
 
 
 # ---------------------------------------------------------------------------
@@ -491,11 +513,12 @@ def test_configure_callback_port_uses_explicit_port():
     assert cfg["_resolved_port"] == 54321
 
 
-def test_parse_base_url_strips_path():
-    """_parse_base_url drops path components for OAuth discovery."""
+def test_parse_base_url_preserves_path_and_strips_fragment():
+    """_parse_base_url preserves MCP endpoint paths for OAuth resource checks."""
     from tools.mcp_oauth import _parse_base_url
 
-    assert _parse_base_url("https://example.com/mcp/v1") == "https://example.com"
+    assert _parse_base_url("https://example.com/mcp/v1") == "https://example.com/mcp/v1"
     assert _parse_base_url("https://example.com") == "https://example.com"
-    assert _parse_base_url("https://host.example.com:8080/api") == "https://host.example.com:8080"
+    assert _parse_base_url("https://host.example.com:8080/api") == "https://host.example.com:8080/api"
+    assert _parse_base_url("https://mcp.notion.com/mcp#ignored") == "https://mcp.notion.com/mcp"
 
