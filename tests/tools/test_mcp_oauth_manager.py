@@ -139,3 +139,17 @@ def test_manager_builds_hermes_provider_subclass(tmp_path, monkeypatch):
     assert isinstance(provider, _HERMES_PROVIDER_CLS)
     assert provider._hermes_server_name == "srv"
 
+
+def test_manager_provider_context_keeps_full_mcp_endpoint(tmp_path, monkeypatch):
+    """Manager must not strip the MCP endpoint path before giving it to OAuth."""
+    from tools.mcp_oauth_manager import MCPOAuthManager, reset_manager_for_tests
+
+    reset_manager_for_tests()
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+    mgr = MCPOAuthManager()
+    provider = mgr.get_or_build_provider("notion", "https://mcp.notion.com/mcp", None)
+
+    assert provider is not None
+    assert str(provider.context.server_url) == "https://mcp.notion.com/mcp"
+
